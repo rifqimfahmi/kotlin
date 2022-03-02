@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,6 +15,10 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.platform.js.isJs
+import org.jetbrains.kotlin.platform.jvm.isJvm
+import org.jetbrains.kotlinx.atomicfu.compiler.AtomicfuJsIrTransformer
+import org.jetbrains.kotlinx.atomicfu.compiler.AtomicfuJvmIrTransformer
 
 public open class AtomicfuLoweringExtension : IrGenerationExtension {
     override fun generate(
@@ -48,6 +52,11 @@ private class AtomicfuClassLowering(
     val context: IrPluginContext
 ) : IrElementTransformerVoid(), FileLoweringPass {
     override fun lower(irFile: IrFile) {
-        AtomicfuTransformer(context).transform(irFile)
+        if (context.platform.isJs()) {
+            AtomicfuJsIrTransformer(context).transform(irFile)
+        }
+        if (context.platform.isJvm()) {
+            AtomicfuJvmIrTransformer(context).transform(irFile)
+        }
     }
 }

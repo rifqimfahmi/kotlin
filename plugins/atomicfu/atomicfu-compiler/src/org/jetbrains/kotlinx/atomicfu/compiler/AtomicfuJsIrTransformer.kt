@@ -1,9 +1,9 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlinx.atomicfu.compiler.extensions
+package org.jetbrains.kotlinx.atomicfu.compiler
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.*
@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.expressions.IrTypeOperator.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.platform.js.isJs
+import org.jetbrains.kotlin.platform.jvm.isJvm
 
 private const val AFU_PKG = "kotlinx.atomicfu"
 private const val LOCKS = "locks"
@@ -38,7 +39,7 @@ private const val APPEND = "append"
 private const val ATOMIC_ARRAY_OF_NULLS_FACTORY = "atomicArrayOfNulls"
 private const val REENTRANT_LOCK_FACTORY = "reentrantLock"
 
-class AtomicfuTransformer(private val context: IrPluginContext) {
+class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
 
     private val irBuiltIns = context.irBuiltIns
 
@@ -54,12 +55,10 @@ class AtomicfuTransformer(private val context: IrPluginContext) {
     private val ATOMICFU_INLINE_FUNCTIONS = setOf("atomicfu_loop", "atomicfu_update", "atomicfu_getAndUpdate", "atomicfu_updateAndGet")
 
     fun transform(irFile: IrFile) {
-        if (context.platform.isJs()) {
-            irFile.transform(AtomicExtensionTransformer(), null)
-            irFile.transformChildren(AtomicTransformer(), null)
+        irFile.transform(AtomicExtensionTransformer(), null)
+        irFile.transformChildren(AtomicTransformer(), null)
 
-            irFile.patchDeclarationParents()
-        }
+        irFile.patchDeclarationParents()
     }
 
     private inner class AtomicExtensionTransformer : IrElementTransformerVoid() {
