@@ -6,9 +6,15 @@
 package org.jetbrains.kotlinx.atomicfu
 
 import com.intellij.openapi.project.Project
+import org.jetbrains.kotlin.ObsoleteTestInfrastructure
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
+import org.jetbrains.kotlin.codegen.AbstractAsmLikeInstructionListingTest
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.runners.codegen.AbstractIrBlackBoxCodegenTest
 import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
@@ -19,12 +25,33 @@ import java.io.File
 
 private val coreLibraryPath = getLibraryJar("kotlinx.atomicfu.AtomicFU")
 private val kotlinTestPath = getLibraryJar("kotlin.test.AssertionsKt")
+private val javaUtilConcurrentPath = getLibraryJar("java.util.concurrent.atomic.AtomicIntegerFieldUpdater")
+private val kotlinJvm = getLibraryJar("kotlin.jvm.JvmField")
 
 open class AbstractAtomicfuJvmIrTest : AbstractIrBlackBoxCodegenTest() {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        val librariesPaths = listOf(coreLibraryPath!!, kotlinTestPath!!)
+        val librariesPaths = listOf(coreLibraryPath!!, kotlinTestPath!!, javaUtilConcurrentPath!!, kotlinJvm!!)
         builder.configureForKotlinxAtomicfu(librariesPaths)
+    }
+}
+
+@OptIn(ObsoleteTestInfrastructure::class)
+abstract class AbstractAtomicfuIrBytecodeListingTest : AbstractAsmLikeInstructionListingTest() {
+
+    override fun getExpectedTextFileName(wholeFile: File): String {
+        return wholeFile.nameWithoutExtension + ".ir.txt"
+    }
+
+    override val backend = TargetBackend.JVM_IR
+
+    override fun setupEnvironment(environment: KotlinCoreEnvironment) {
+        AtomicfuComponentRegistrar.registerExtensions(environment.project)
+        environment.updateClasspath(listOf(
+            JvmClasspathRoot(coreLibraryPath!!),
+            JvmClasspathRoot(kotlinTestPath!!),
+            JvmClasspathRoot(javaUtilConcurrentPath!!)
+        ))
     }
 }
 
@@ -58,5 +85,9 @@ private fun TestConfigurationBuilder.configureForKotlinxAtomicfu(librariesPaths:
             }
         }
     )
+
+    defaultDirectives {
+        +CodegenTestDirectives.CHECK_BYTECODE_LISTING
+    }
 }
 

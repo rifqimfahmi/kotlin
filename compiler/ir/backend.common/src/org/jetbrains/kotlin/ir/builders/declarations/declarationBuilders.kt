@@ -14,11 +14,14 @@ import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
+import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.symbols.impl.*
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.name.Name
@@ -112,13 +115,25 @@ inline fun IrProperty.addGetter(builder: IrFunctionBuilder.() -> Unit = {}): IrS
         }
     }
 
+inline fun IrProperty.addSetter(builder: IrFunctionBuilder.() -> Unit = {}): IrSimpleFunction =
+    IrFunctionBuilder().run {
+        name = Name.special("<set-${this@addSetter.name}>")
+        builder()
+        factory.buildFunction(this).also { setter ->
+            this@addSetter.setter = setter
+            setter.correspondingPropertySymbol = this@addSetter.symbol
+            setter.parent = this@addSetter.parent
+        }
+    }
+
 fun IrProperty.addDefaultGetter(parentClass: IrClass, builtIns: IrBuiltIns) {
     val field = backingField!!
     addGetter {
         origin = IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
         returnType = field.type
     }.apply {
-        dispatchReceiverParameter = parentClass.thisReceiver!!.copyTo(this)
+        //typeParameters = parentClass.typeParameters.map { it.deepCopyWithSymbols(this) } // todo check if that is necessary: for the case of parameterized parentClass
+        dispatchReceiverParameter = parentClass.thisReceiver!!.deepCopyWithSymbols(this)
         body = factory.createBlockBody(
             UNDEFINED_OFFSET, UNDEFINED_OFFSET, listOf(
                 IrReturnImpl(
@@ -135,6 +150,36 @@ fun IrProperty.addDefaultGetter(parentClass: IrClass, builtIns: IrBuiltIns) {
                             dispatchReceiverParameter!!.symbol
                         )
                     )
+                )
+            )
+        )
+    }
+}
+
+fun IrProperty.addDefaultSetter(parentClass: IrClass, builtIns: IrBuiltIns) {
+    val field = backingField!!
+    addSetter {
+        origin = IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR
+        returnType = builtIns.unitType
+    }.apply {
+        dispatchReceiverParameter = parentClass.thisReceiver!!.copyTo(this)
+        addValueParameter("value", field.type)
+        body = factory.createBlockBody(
+            UNDEFINED_OFFSET, UNDEFINED_OFFSET, listOf(
+                IrSetFieldImpl(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                    symbol = field.symbol,
+                    receiver = IrGetValueImpl(
+                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                        dispatchReceiverParameter!!.type,
+                        dispatchReceiverParameter!!.symbol
+                    ),
+                    value = IrGetValueImpl(
+                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                        field.type,
+                        valueParameters[0].symbol
+                    ),
+                    type = builtIns.unitType
                 )
             )
         )

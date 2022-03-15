@@ -55,7 +55,6 @@ class MockApplicationCreationTracingInstrumenter(private val debugInfo: Boolean)
         if (className == null || loader == null) return null
 
         if (loader::class.java.name == "org.jetbrains.kotlin.preloading.MemoryBasedClassLoader") return null
-
         if (className == "com/intellij/mock/MockComponentManager" && isMockComponentManagerCreationTracerCanBeLoaded(loader)) {
             return loadTransformAndSerialize(classfileBuffer, this::transformMockComponentManager)
         }

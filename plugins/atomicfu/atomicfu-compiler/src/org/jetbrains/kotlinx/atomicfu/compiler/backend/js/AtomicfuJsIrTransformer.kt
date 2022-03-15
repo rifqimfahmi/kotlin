@@ -3,12 +3,11 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlinx.atomicfu.compiler
+package org.jetbrains.kotlinx.atomicfu.compiler.backend.js
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.*
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder.buildValueParameter
-import org.jetbrains.kotlin.ir.util.IdSignature.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -18,40 +17,18 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.expressions.IrTypeOperator.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
-import org.jetbrains.kotlin.platform.js.isJs
-import org.jetbrains.kotlin.platform.jvm.isJvm
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.*
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.buildGetterType
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.buildSetterType
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.getBackingField
 
 private const val AFU_PKG = "kotlinx.atomicfu"
-private const val LOCKS = "locks"
-private const val AFU_LOCKS_PKG = "$AFU_PKG.$LOCKS"
-private const val ATOMICFU_RUNTIME_FUNCTION_PREDICATE = "atomicfu_"
-private const val REENTRANT_LOCK_TYPE = "ReentrantLock"
-private const val TRACE_BASE_TYPE = "TraceBase"
 private const val GETTER = "atomicfu\$getter"
 private const val SETTER = "atomicfu\$setter"
-private const val GET = "get"
-private const val GET_VALUE = "getValue"
-private const val SET_VALUE = "setValue"
-private const val ATOMIC_VALUE_FACTORY = "atomic"
-private const val TRACE = "Trace"
-private const val INVOKE = "invoke"
-private const val APPEND = "append"
-private const val ATOMIC_ARRAY_OF_NULLS_FACTORY = "atomicArrayOfNulls"
-private const val REENTRANT_LOCK_FACTORY = "reentrantLock"
+private const val ATOMICFU_RUNTIME_FUNCTION_PREDICATE = "atomicfu_"
 
-class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
+class AtomicfuJsIrTransformer(context: IrPluginContext) : AtomicfuBaseTransformer(context) {
 
-    private val irBuiltIns = context.irBuiltIns
-
-    private val AFU_CLASSES: Map<String, IrType> = mapOf(
-        "AtomicInt" to irBuiltIns.intType,
-        "AtomicLong" to irBuiltIns.longType,
-        "AtomicRef" to irBuiltIns.anyNType,
-        "AtomicBoolean" to irBuiltIns.booleanType
-    )
-
-    private val ATOMIC_VALUE_TYPES = setOf("AtomicInt", "AtomicLong", "AtomicBoolean", "AtomicRef")
-    private val ATOMIC_ARRAY_TYPES = setOf("AtomicIntArray", "AtomicLongArray", "AtomicBooleanArray", "AtomicArray")
     private val ATOMICFU_INLINE_FUNCTIONS = setOf("atomicfu_loop", "atomicfu_update", "atomicfu_getAndUpdate", "atomicfu_updateAndGet")
 
     fun transform(irFile: IrFile) {
@@ -280,9 +257,9 @@ class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
 
                 // getValue/setValue should get and set the value of the originalField
                 val name = expression.symbol.owner.name.asString()
-                if (expression.symbol.isKotlinxAtomicfuPackage() && (name == GET_VALUE || name == SET_VALUE)) {
+                if (expression.isGetValue() || expression.isSetValue()) {
                     val type = originalField.type.atomicToValueType()
-                    val isSetter = name == SET_VALUE
+                    val isSetter = expression.isSetValue()
                     val runtimeFunction = getRuntimeFunctionSymbol(name, type)
                     val dispatchReceiver = if (isInitializedWithAtomicFactory) {
                         val thisRef = expression.getValueArgument(0)!!
@@ -366,11 +343,6 @@ class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
             )
         }
 
-        private fun IrCall.isArrayElementGetter(): Boolean =
-            dispatchReceiver?.let {
-                it.type.isAtomicArrayType() && symbol.owner.name.asString() == GET
-            } ?: false
-
         private fun IrCall.getAccessors(): List<IrExpression> =
             if (!isArrayElementGetter()) {
                 val field = getBackingField()
@@ -390,17 +362,6 @@ class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
 
         private fun IrStatement.isTrace() =
             this is IrCall && (isTraceInvoke() || isTraceAppend())
-
-        private fun IrCall.isTraceInvoke(): Boolean =
-            symbol.isKotlinxAtomicfuPackage() &&
-                    symbol.owner.name.asString() == INVOKE &&
-                    symbol.owner.dispatchReceiverParameter?.type?.isTraceBaseType() == true
-
-        private fun IrCall.isTraceAppend(): Boolean =
-            symbol.isKotlinxAtomicfuPackage() &&
-                    symbol.owner.name.asString() == APPEND &&
-                    symbol.owner.dispatchReceiverParameter?.type?.isTraceBaseType() == true
-
 
         private fun getRuntimeFunctionSymbol(name: String, type: IrType): IrSimpleFunctionSymbol {
             val functionName = when (name) {
@@ -453,30 +414,20 @@ class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
         }
     }
 
-    private fun IrFunction.isAtomicExtension(): Boolean =
-        extensionReceiverParameter?.let { it.type.isAtomicValueType() && this.isInline } ?: false
+    private fun IrCall.isArrayElementGetter(): Boolean =
+        dispatchReceiver?.let {
+            it.type.isAtomicArrayType() && symbol.owner.name.asString() == "get"
+        } ?: false
 
-    private fun IrSymbol.isKotlinxAtomicfuPackage() =
-        this.isPublicApi && signature?.packageFqName()?.asString() == AFU_PKG
+    private fun IrCall.isAtomicArrayFactory(): Boolean =
+        symbol.isKotlinxAtomicfuPackage() && symbol.owner.name.asString() == "atomicArrayOfNulls" &&
+                type.isAtomicArrayType()
 
-    private fun IrType.isAtomicValueType() = belongsTo(AFU_PKG, ATOMIC_VALUE_TYPES)
+    protected fun IrConstructorCall.isAtomicArrayConstructor(): Boolean = type.isAtomicArrayType()
+
     private fun IrType.isAtomicArrayType() = belongsTo(AFU_PKG, ATOMIC_ARRAY_TYPES)
-    private fun IrType.isReentrantLockType() = belongsTo(AFU_LOCKS_PKG, REENTRANT_LOCK_TYPE)
-    private fun IrType.isTraceBaseType() = belongsTo(AFU_PKG, TRACE_BASE_TYPE)
 
-    private fun IrType.belongsTo(packageName: String, typeNames: Set<String>) =
-        getSignature()?.let { sig ->
-            sig.packageFqName == packageName && sig.declarationFqName in typeNames
-        } ?: false
-
-    private fun IrType.belongsTo(packageName: String, typeName: String) =
-        getSignature()?.let { sig ->
-            sig.packageFqName == packageName && sig.declarationFqName == typeName
-        } ?: false
-
-    private fun IrType.getSignature(): CommonSignature? = classOrNull?.let { it.signature?.asPublic() }
-
-    private fun IrType.atomicToValueType(): IrType {
+    override fun IrType.atomicToValueType(): IrType {
         require(this is IrSimpleType)
         return classifier.signature?.asPublic()?.declarationFqName?.let { classId ->
             if (classId == "AtomicRef")
@@ -486,23 +437,5 @@ class AtomicfuJsIrTransformer(private val context: IrPluginContext) {
         } ?: error("Unexpected signature of the atomic type: ${this.render()}")
     }
 
-    private fun IrCall.isAtomicFactory(): Boolean =
-        symbol.isKotlinxAtomicfuPackage() && symbol.owner.name.asString() == ATOMIC_VALUE_FACTORY &&
-                type.isAtomicValueType()
-
-    private fun IrCall.isTraceFactory(): Boolean =
-        symbol.isKotlinxAtomicfuPackage() && symbol.owner.name.asString() == TRACE &&
-                type.isTraceBaseType()
-
-    private fun IrCall.isAtomicArrayFactory(): Boolean =
-        symbol.isKotlinxAtomicfuPackage() && symbol.owner.name.asString() == ATOMIC_ARRAY_OF_NULLS_FACTORY &&
-                type.isAtomicArrayType()
-
-    private fun IrCall.isAtomicFieldGetter(): Boolean =
-        type.isAtomicValueType() && symbol.owner.name.asString().startsWith("<get-")
-
-    private fun IrConstructorCall.isAtomicArrayConstructor(): Boolean = type.isAtomicArrayType()
-
-    private fun IrCall.isReentrantLockFactory(): Boolean =
-        symbol.owner.name.asString() == REENTRANT_LOCK_FACTORY && type.isReentrantLockType()
+    override fun IrType.isAtomicValueType() = belongsTo(AFU_PKG, ATOMIC_VALUE_TYPES)
 }

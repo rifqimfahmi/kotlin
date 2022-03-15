@@ -31,12 +31,7 @@ val atomicfuJsClasspath by configurations.creating {
     }
 }
 
-val atomicfuJvmClasspath by configurations.creating {
-    attributes {
-        attribute(KotlinPlatformType.attribute, KotlinPlatformType.jvm)
-        attribute(KotlinJsCompilerAttribute.jsCompilerAttribute, KotlinJsCompilerAttribute.ir)
-    }
-}
+val atomicfuJvmClasspath by configurations.creating
 
 val atomicfuJsIrRuntimeForTests by configurations.creating {
     attributes {
@@ -59,9 +54,13 @@ dependencies {
     compileOnly(project(":compiler:frontend"))
     compileOnly(project(":compiler:backend"))
     compileOnly(project(":compiler:ir.backend.common"))
+
     compileOnly(project(":js:js.frontend"))
     compileOnly(project(":js:js.translator"))
     compileOnly(project(":compiler:backend.js"))
+
+    compileOnly(project(":compiler:backend.jvm"))
+    compileOnly(project(":compiler:ir.tree.impl"))
 
     compileOnly(kotlinStdlib())
 
@@ -95,6 +94,8 @@ dependencies {
         isTransitive = false
     }
 
+    embedded(project(":kotlinx-atomicfu-runtime")) { isTransitive = false }
+
     testImplementation("org.jetbrains.kotlinx:atomicfu:0.17.1")
 
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.6.2")
@@ -103,6 +104,10 @@ dependencies {
 sourceSets {
     "main" { projectDefault() }
     "test" { projectDefault() }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    kotlinOptions.freeCompilerArgs += "-Xphases-to-dump=JvmLocalDeclarations"
 }
 
 runtimeJar()
@@ -114,6 +119,7 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
     useJUnitPlatform()
     workingDir = rootDir
     dependsOn(atomicfuJsIrRuntimeForTests)
+
     doFirst {
         systemProperty("atomicfuJsIrRuntimeForTests.classpath", atomicfuJsIrRuntimeForTests.asPath)
         systemProperty("atomicfuJs.classpath", atomicfuJsClasspath.asPath)

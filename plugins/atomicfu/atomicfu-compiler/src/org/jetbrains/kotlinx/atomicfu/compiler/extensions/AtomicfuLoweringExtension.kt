@@ -8,6 +8,7 @@ package org.jetbrains.kotlinx.atomicfu.compiler.extensions
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.backend.common.lower
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
@@ -17,19 +18,43 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.platform.js.isJs
 import org.jetbrains.kotlin.platform.jvm.isJvm
-import org.jetbrains.kotlinx.atomicfu.compiler.AtomicfuJsIrTransformer
-import org.jetbrains.kotlinx.atomicfu.compiler.AtomicfuJvmIrTransformer
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.jvm.AtomicSymbols
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.js.AtomicfuJsIrTransformer
+import org.jetbrains.kotlinx.atomicfu.compiler.backend.jvm.AtomicfuJvmIrTransformer
 
 public open class AtomicfuLoweringExtension : IrGenerationExtension {
     override fun generate(
         moduleFragment: IrModuleFragment,
         pluginContext: IrPluginContext
     ) {
-        val atomicfuClassLowering = AtomicfuClassLowering(pluginContext)
-        for (file in moduleFragment.files) {
-            atomicfuClassLowering.runOnFileInOrder(file)
+        if (pluginContext.platform.isJvm()) {
+            val atomicSymbols = AtomicSymbols(pluginContext.irBuiltIns, moduleFragment)
+            AtomicfuJvmIrTransformer(pluginContext, atomicSymbols).transform(moduleFragment)
+        }
+        if (pluginContext.platform.isJs()) {
+            for (file in moduleFragment.files) {
+                AtomicfuClassLowering(pluginContext).runOnFileInOrder(file)
+            }
         }
     }
+}
+
+fun FileLoweringPass.runOnModuleFragment(moduleFragment: IrModuleFragment) {
+    moduleFragment.acceptVoid(object : IrElementVisitorVoid {
+        override fun visitModuleFragment(declaration: IrModuleFragment) {
+            lower(declaration)
+            super.visitModuleFragment(declaration)
+        }
+
+        override fun visitElement(element: IrElement) {
+            element.acceptChildrenVoid(this)
+        }
+
+        override fun visitFile(declaration: IrFile) {
+            lower(declaration)
+            declaration.acceptChildrenVoid(this)
+        }
+    })
 }
 
 /**
@@ -54,9 +79,6 @@ private class AtomicfuClassLowering(
     override fun lower(irFile: IrFile) {
         if (context.platform.isJs()) {
             AtomicfuJsIrTransformer(context).transform(irFile)
-        }
-        if (context.platform.isJvm()) {
-            AtomicfuJvmIrTransformer(context).transform(irFile)
         }
     }
 }

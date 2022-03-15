@@ -923,6 +923,10 @@ class LocalDeclarationsLowering(
                     expression.function.acceptChildren(this, data)
                 }
 
+                override fun visitFunction(declaration: IrFunction, data: Data) {
+                    super.visitFunction(declaration, data)
+                }
+
                 override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Data) {
                     super.visitSimpleFunction(declaration, data.withInline(declaration.isInline))
 

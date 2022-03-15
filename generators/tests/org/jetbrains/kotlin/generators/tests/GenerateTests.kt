@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.parcelize.test.runners.*
 import org.jetbrains.kotlin.samWithReceiver.AbstractSamWithReceiverScriptTest
 import org.jetbrains.kotlin.samWithReceiver.AbstractSamWithReceiverTest
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuIrBytecodeListingTest
 import org.jetbrains.kotlinx.serialization.AbstractSerializationIrBytecodeListingTest
 import org.jetbrains.kotlinx.serialization.AbstractSerializationPluginBytecodeListingTest
 import org.jetbrains.kotlinx.serialization.AbstractSerializationPluginDiagnosticTest
@@ -266,6 +267,16 @@ fun main(args: Array<String>) {
 
             testClass<AbstractSerializationIrBytecodeListingTest> {
                 model("codegen")
+            }
+        }
+
+        testGroup(
+            "plugins/atomicfu/atomicfu-compiler/test",
+            "plugins/atomicfu/atomicfu-compiler/testData",
+            testRunnerMethodName = "runTest0"
+        ) {
+            testClass<AbstractAtomicfuIrBytecodeListingTest> {
+                model("codegen/")
             }
         }
 

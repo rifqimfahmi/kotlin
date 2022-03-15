@@ -98,6 +98,7 @@ class ArithmeticTest {
 
     fun testBoolean() {
         val a = BooleanArithmetic()
+        assertEquals(false, a._x.value)
         assertFalse(a.x)
         a._x.lazySet(true)
         assertTrue(a.x)
