@@ -185,7 +185,7 @@ fun generateIrForKlibSerialization(
         irLinker,
         messageLogger,
         expectDescriptorToSymbol,
-        stubGenerator
+        DeclarationStubGeneratorForNotFoundClasses(stubGenerator)
     )
 
     if (verifySignatures) {
@@ -560,7 +560,7 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
     return psi2Ir.generateModuleFragment(
         this,
         files,
-        listOfNotNull(stubGenerator),
+        listOfNotNull(irLinker, stubGenerator),
         extensions,
         expectDescriptorToSymbol
     )
