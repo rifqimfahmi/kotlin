@@ -185,7 +185,7 @@ fun generateIrForKlibSerialization(
         irLinker,
         messageLogger,
         expectDescriptorToSymbol,
-        DeclarationStubGeneratorForNotFoundClasses(stubGenerator)
+        stubGenerator
     )
 
     if (verifySignatures) {
@@ -461,10 +461,6 @@ fun getIrModuleInfoForSourceFiles(
         )
 
     val moduleFragment = psi2IrContext.generateModuleFragmentWithPlugins(project, files, irLinker, messageLogger)
-    if (!allowUnboundSymbols) {
-        symbolTable.noUnboundLeft("Unbound symbols left after linker")
-    }
-
 
     // TODO: not sure whether this check should be enabled by default. Add configuration key for it.
     val mangleChecker = ManglerChecker(JsManglerIr, Ir2DescriptorManglerAdapter(JsManglerDesc))
@@ -531,7 +527,7 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
     irLinker: IrDeserializer,
     messageLogger: IrMessageLogger,
     expectDescriptorToSymbol: MutableMap<DeclarationDescriptor, IrSymbol>? = null,
-    stubGenerator: IrProvider? = null,
+    irProvider: IrProvider = irLinker
 ): IrModuleFragment {
     val psi2Ir = Psi2IrTranslator(languageVersionSettings, configuration)
 
@@ -560,7 +556,7 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
     return psi2Ir.generateModuleFragment(
         this,
         files,
-        listOfNotNull(irLinker, stubGenerator),
+        listOf(irProvider),
         extensions,
         expectDescriptorToSymbol
     )
