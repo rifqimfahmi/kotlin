@@ -630,10 +630,8 @@ internal class KonanIrLinker(
         override fun contains(idSig: IdSignature) =
                 idSig.isPubliclyVisible && descriptorByIdSignatureFinder.findDescriptorBySignature(idSig) != null
 
-        override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
-            val descriptor = descriptorByIdSignatureFinder.findDescriptorBySignature(idSig)
-                    ?: error("Expecting descriptor for $idSig")
-
+        override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol? {
+            val descriptor = descriptorByIdSignatureFinder.findDescriptorBySignature(idSig) ?: return null
             return (stubGenerator.generateMemberStub(descriptor) as IrSymbolOwner).symbol
         }
 
