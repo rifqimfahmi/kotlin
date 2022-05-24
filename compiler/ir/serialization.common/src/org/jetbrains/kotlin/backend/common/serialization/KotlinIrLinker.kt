@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolD
 import org.jetbrains.kotlin.backend.common.serialization.linkerissues.*
 import org.jetbrains.kotlin.backend.common.serialization.unlinked.UnlinkedDeclarationsProcessor
 import org.jetbrains.kotlin.backend.common.serialization.unlinked.UnlinkedDeclarationsSupport
+import org.jetbrains.kotlin.backend.common.serialization.unlinked.IrModuleWithUnboundSymbolsDeserializer
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
@@ -26,7 +27,6 @@ import org.jetbrains.kotlin.ir.types.IrTypeProjection
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
-import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.name.Name
@@ -67,19 +67,7 @@ abstract class KotlinIrLinker(
         moduleDeserializer: IrModuleDeserializer
     ): IrModuleDeserializer {
         if (unlinkedDeclarationsSupport.allowUnboundSymbols) {
-            return object : IrModuleDeserializer(null, KotlinAbiVersion.CURRENT) {
-                override fun contains(idSig: IdSignature): Boolean = false
-
-                override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
-                    return referenceDeserializedSymbol(symbolTable, null, symbolKind, idSig)
-                }
-
-                override val moduleFragment: IrModuleFragment
-                    get() = TODO("Not yet implemented")
-                override val moduleDependencies: Collection<IrModuleDeserializer> get() = emptyList()
-                override val kind: IrModuleDeserializerKind
-                    get() = TODO("Not yet implemented")
-            }
+            return IrModuleWithUnboundSymbolsDeserializer(symbolTable)
         } else {
             throw SignatureIdNotFoundInModuleWithDependencies(
                 idSignature = idSignature,
