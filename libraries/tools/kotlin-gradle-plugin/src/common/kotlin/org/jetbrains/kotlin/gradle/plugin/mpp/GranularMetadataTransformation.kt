@@ -57,10 +57,10 @@ internal sealed class MetadataDependencyResolution(
             projectDependency: Project?
         ) : Exclude(dependency, projectDependency)
 
-        class PlatformSourceSetDependency(
+        class PublishedPlatformSourceSetDependency(
             dependency: ResolvedComponentResult,
-            projectDependency: Project?
-        ) : Exclude(dependency, projectDependency)
+            val visibleTransitiveDependencies: Set<ResolvedDependencyResult>,
+        ) : Exclude(dependency, null)
     }
 
     class ChooseVisibleSourceSets internal constructor(
@@ -170,7 +170,7 @@ internal class GranularMetadataTransformation(
                 is MetadataDependencyResolution.KeepOriginalDependency ->
                     resolvedDependency.dependencies.filterIsInstance<ResolvedDependencyResult>()
                 is MetadataDependencyResolution.ChooseVisibleSourceSets -> dependencyResult.visibleTransitiveDependencies
-                is MetadataDependencyResolution.Exclude.PlatformSourceSetDependency -> emptyList()
+                is MetadataDependencyResolution.Exclude.PublishedPlatformSourceSetDependency -> dependencyResult.visibleTransitiveDependencies
                 is MetadataDependencyResolution.Exclude.Unrequested -> error("a visited dependency is erroneously considered unrequested")
             }
 
@@ -223,9 +223,6 @@ internal class GranularMetadataTransformation(
 
         val resolvedToProject: Project? = module.toProjectOrNull(project)
 
-        if (kotlinSourceSet in project.multiplatformExtension.platformCompilationSourceSets)
-            return MetadataDependencyResolution.Exclude.PlatformSourceSetDependency(module, resolvedToProject)
-
         val projectStructureMetadata = mppDependencyMetadataExtractor?.getProjectStructureMetadata()
             ?: return MetadataDependencyResolution.KeepOriginalDependency(module, resolvedToProject)
 
@@ -259,6 +256,9 @@ internal class GranularMetadataTransformation(
         val transitiveDependenciesToVisit = module.dependencies
             .filterIsInstance<ResolvedDependencyResult>()
             .filterTo(mutableSetOf()) { ModuleIds.fromComponent(project, it.selected) in requestedTransitiveDependencies }
+
+        if (kotlinSourceSet in project.multiplatformExtension.platformCompilationSourceSets && resolvedToProject == null)
+            return MetadataDependencyResolution.Exclude.PublishedPlatformSourceSetDependency(module, transitiveDependenciesToVisit)
 
         val visibleSourceSetsExcludingDependsOn = allVisibleSourceSets.filterTo(mutableSetOf()) { it !in sourceSetsVisibleInParents }
 

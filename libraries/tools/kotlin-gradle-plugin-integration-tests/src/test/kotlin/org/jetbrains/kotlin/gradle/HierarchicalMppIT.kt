@@ -101,7 +101,7 @@ class HierarchicalMppIT : KGPBaseTest() {
                 val thirdPartyLibApiVisibility = reports.filter { report ->
                     report.groupAndModule.startsWith("com.example.thirdparty:third-party-lib") && report.scope == "api"
                 }
-                val jvmJsSourceSets = setOf("jvmMain", "jsMain", "jvmTest", "jsTest", "jvmAndJsMain", "jvmAndJsTest")
+                val jvmJsSourceSets = setOf("jvmAndJsMain", "jvmAndJsTest")
                 thirdPartyLibApiVisibility.forEach {
                     if (it.sourceSetName in jvmJsSourceSets)
                         assertTrue("$it") { it.allVisibleSourceSets == setOf("commonMain") }
