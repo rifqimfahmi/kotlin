@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.gradle.targets.native.internal
 
 import org.gradle.api.Project
+import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.commonizer.*
 import org.jetbrains.kotlin.commonizer.CommonizerOutputFileLayout.resolveCommonizedDirectory
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
@@ -18,7 +19,8 @@ internal val Project.isNativeDistributionCommonizationCacheEnabled: Boolean
     get() = PropertiesProvider(this).enableNativeDistributionCommonizationCache
 
 internal class NativeDistributionCommonizationCache(
-    private val project: Project,
+    private val isNativeDistributionCommonizationCacheEnabled: Boolean,
+    private val logger: Logger,
     private val commonizer: NativeDistributionCommonizer
 ) : NativeDistributionCommonizer {
 
@@ -29,7 +31,7 @@ internal class NativeDistributionCommonizationCache(
         logLevel: CommonizerLogLevel,
         additionalSettings: List<AdditionalCommonizerSetting<*>>,
     ) {
-        if (!project.isNativeDistributionCommonizationCacheEnabled) {
+        if (!isNativeDistributionCommonizationCacheEnabled) {
             logInfo("Cache disabled")
         }
 
@@ -39,7 +41,7 @@ internal class NativeDistributionCommonizationCache(
                 .onEach { outputTarget -> logInfo("Cache hit: $outputTarget already commonized") }
                 .toSet()
 
-            val enqueuedOutputTargets = if (project.isNativeDistributionCommonizationCacheEnabled) outputTargets - cachedOutputTargets
+            val enqueuedOutputTargets = if (isNativeDistributionCommonizationCacheEnabled) outputTargets - cachedOutputTargets
             else outputTargets
 
             if (canReturnFast(konanHome, enqueuedOutputTargets)) {
@@ -97,7 +99,7 @@ internal class NativeDistributionCommonizationCache(
         }
     }
 
-    private fun logInfo(message: String) = project.logger.info("${Logging.prefix}: $message")
+    private fun logInfo(message: String) = logger.info("${Logging.prefix}: $message")
 
     private object Logging {
         const val prefix = "Native Distribution Commonization"

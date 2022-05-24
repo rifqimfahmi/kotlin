@@ -7,10 +7,11 @@ package org.jetbrains.kotlin.gradle.targets.native.internal
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.tasks.*
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.commonizer.SharedCommonizerTarget
+import org.jetbrains.kotlin.compilerRunner.*
 import org.jetbrains.kotlin.compilerRunner.GradleCliCommonizer
 import org.jetbrains.kotlin.compilerRunner.KotlinNativeCommonizerToolRunner
 import org.jetbrains.kotlin.compilerRunner.konanHome
@@ -21,28 +22,36 @@ import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_COMMONIZED_LIBS_DIR
 import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_KLIB_DIR
 import java.io.File
 import java.net.URLEncoder
+import javax.inject.Inject
 
-internal open class NativeDistributionCommonizerTask : DefaultTask() {
+internal open class NativeDistributionCommonizerTask
+@Inject constructor (
+    private val objectFactory: ObjectFactory,
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
 
     private val konanHome = project.file(project.konanHome)
 
     @get:Input
-    internal val commonizerTargets: Set<SharedCommonizerTarget>
-        get() = project.collectAllSharedCommonizerTargetsFromBuild()
+    internal val commonizerTargets by lazy { project.collectAllSharedCommonizerTargetsFromBuild() }
 
-    @get:Internal
-    internal val commonizerRunner = KotlinNativeCommonizerToolRunner(project)
+    @get:Nested
+    internal val runnerSettings = KotlinNativeCommonizerToolRunner.Settings(project)
 
     @get:Input
-    @Suppress("unused") // Only for up-to-date checker.
-    internal val commonizerJvmArgs: List<String>
-        get() = commonizerRunner.getCustomJvmArgs()
+    internal val isNativeDistributionCommonizationCacheEnabled = project.isNativeDistributionCommonizationCacheEnabled
 
-    @Internal
-    internal fun getRootOutputDirectory(): File {
-        val kotlinVersion = project.getKotlinPluginVersion()
+    private val logLevel = project.commonizerLogLevel
 
-        return project.file(konanHome)
+    private val additionalSettings = project.additionalCommonizerSettings
+
+    @get:Input
+    internal val kotlinVersion by lazy { project.getKotlinPluginVersion() }
+
+    // TODO(alakotka): Support @OutputDirectory by ignoring `.lock` file
+    @get:Internal
+    internal val rootOutputDirectory: File = project.file {
+        project.file(konanHome)
             .resolve(KONAN_DISTRIBUTION_KLIB_DIR)
             .resolve(KONAN_DISTRIBUTION_COMMONIZED_LIBS_DIR)
             .resolve(urlEncode(kotlinVersion))
@@ -50,12 +59,21 @@ internal open class NativeDistributionCommonizerTask : DefaultTask() {
 
     @TaskAction
     protected fun run() {
-        NativeDistributionCommonizationCache(project, GradleCliCommonizer(commonizerRunner)).commonizeNativeDistribution(
+        val commonizerRunner = KotlinNativeCommonizerToolRunner(
+            context = KotlinToolRunner.GradleExecutionContext.fromTaskContext(objectFactory, execOperations, logger),
+            settings = runnerSettings
+        )
+
+        NativeDistributionCommonizationCache(
+            isNativeDistributionCommonizationCacheEnabled = isNativeDistributionCommonizationCacheEnabled,
+            logger = logger,
+            commonizer = GradleCliCommonizer(commonizerRunner)
+        ).commonizeNativeDistribution(
             konanHome = konanHome,
-            outputDirectory = getRootOutputDirectory(),
-            outputTargets = project.collectAllSharedCommonizerTargetsFromBuild(),
-            logLevel = project.commonizerLogLevel,
-            additionalSettings = project.additionalCommonizerSettings,
+            outputDirectory = rootOutputDirectory,
+            outputTargets = commonizerTargets,
+            logLevel = logLevel,
+            additionalSettings = additionalSettings,
         )
     }
 
