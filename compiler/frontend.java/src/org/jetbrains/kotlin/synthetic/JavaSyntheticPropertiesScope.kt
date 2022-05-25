@@ -356,7 +356,7 @@ class JavaSyntheticPropertiesScope(
                     DescriptorUtils.getContainingModule(ownerClass),
                     null,
                     Annotations.EMPTY,
-                    Modality.FINAL,
+                    getMethod.modality,
                     visibility,
                     setMethod != null,
                     name,
@@ -381,7 +381,7 @@ class JavaSyntheticPropertiesScope(
                 val getter = PropertyGetterDescriptorImpl(
                     descriptor,
                     getMethod.annotations,
-                    Modality.FINAL,
+                    getMethod.modality,
                     visibility,
                     false,
                     getMethod.isExternal,
@@ -396,7 +396,7 @@ class JavaSyntheticPropertiesScope(
                     PropertySetterDescriptorImpl(
                         descriptor,
                         setMethod.annotations,
-                        Modality.FINAL,
+                        setMethod.modality,
                         syntheticVisibility(setMethod, isUsedForExtension = true),
                         false,
                         setMethod.isExternal,

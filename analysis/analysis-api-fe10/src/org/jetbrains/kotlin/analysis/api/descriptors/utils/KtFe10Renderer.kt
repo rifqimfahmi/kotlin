@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.renderer.render
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.calls.components.hasDefaultValue
 import org.jetbrains.kotlin.resolve.calls.components.isVararg
+import org.jetbrains.kotlin.resolve.calls.tower.isSynthesized
 import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperClassNotAny
 import org.jetbrains.kotlin.resolve.descriptorUtil.getSuperInterfaces
 import org.jetbrains.kotlin.types.KotlinType
@@ -376,6 +377,7 @@ internal class KtFe10Renderer(
     }
 
     private fun KtFe10RendererConsumer.renderReceiver(descriptor: CallableDescriptor) {
+        if (descriptor.isSynthesized) return
         val extensionReceiver = descriptor.extensionReceiverParameter ?: return
         val needsParentheses = !descriptor.annotations.isEmpty() || needsParenthesis(extensionReceiver.type)
         if (needsParentheses) {

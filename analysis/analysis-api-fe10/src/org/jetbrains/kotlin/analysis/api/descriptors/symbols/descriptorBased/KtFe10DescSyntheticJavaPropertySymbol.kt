@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtPsiBasedSymbolPointe
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KtType
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
@@ -76,7 +77,10 @@ internal class KtFe10DescSyntheticJavaPropertySymbol(
         get() = withValidityAssertion { createKtInitializerValue(source as? KtProperty, descriptor, analysisContext) }
 
     override val callableIdIfNonLocal: CallableId?
-        get() = withValidityAssertion { descriptor.callableIdIfNotLocal }
+        get() = withValidityAssertion {
+            val classId = (descriptor.extensionReceiverParameter?.type?.constructor?.declarationDescriptor as? ClassDescriptor)?.classId
+            classId?.let { CallableId(it, name) }
+        }
 
     override val returnType: KtType
         get() = withValidityAssertion { descriptor.type.toKtType(analysisContext) }
