@@ -21,7 +21,7 @@ internal class IrModuleWithUnboundSymbolsDeserializer(
 
     override fun contains(idSig: IdSignature): Boolean = false
 
-    override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol =
+    override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol =
         referenceDeserializedSymbol(symbolTable, null, symbolKind, idSig)
 
     override val moduleFragment: IrModuleFragment get() = error("Unsupported operation")

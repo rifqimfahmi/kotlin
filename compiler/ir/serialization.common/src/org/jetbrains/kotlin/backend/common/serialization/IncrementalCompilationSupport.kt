@@ -113,7 +113,7 @@ class CurrentModuleWithICDeserializer(
         return idSig in dirtyDeclarations || idSig.topLevelSignature() in icDeserializer || idSig in delegate
     }
 
-    override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
+    override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
         dirtyDeclarations[idSig]?.let { return it }
 
         if (idSig.topLevelSignature() in icDeserializer) return icDeserializer.deserializeIrSymbol(idSig, symbolKind)

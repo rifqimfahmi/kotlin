@@ -88,7 +88,7 @@ abstract class KotlinIrLinker(
                 moduleWithUnboundSymbolsDeserializer ?: notFound()
             }
 
-        return actualModuleDeserializer.deserializeIrSymbol(idSignature, symbolKind)
+        return actualModuleDeserializer.tryDeserializeIrSymbol(idSignature, symbolKind)
             ?: run {
                 // It might happen that the top-level symbol still exists in KLIB, but nested symbol has been removed.
                 // Need to handle such case as well.

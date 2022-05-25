@@ -597,8 +597,8 @@ internal class KonanIrLinker(
             return cenumsProvider.getDeclaration(descriptor, idSig, file, symbolKind).symbol
         }
 
-        override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
-            val descriptor = descriptorByIdSignatureFinder.findDescriptorBySignature(idSig) ?: error("Expecting descriptor for $idSig")
+        override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol? {
+            val descriptor = descriptorByIdSignatureFinder.findDescriptorBySignature(idSig) ?: return null
             // If library is cached we don't need to create an IrClass for struct or enum.
             if (!isLibraryCached && descriptor.isCEnumsOrCStruct()) return resolveCEnumsOrStruct(descriptor, idSig, symbolKind)
 
@@ -801,10 +801,10 @@ internal class KonanIrLinker(
 
         override fun contains(idSig: IdSignature): Boolean = idSig.isForwardDeclarationSignature()
 
-        private fun resolveDescriptor(idSig: IdSignature): ClassDescriptor =
+        private fun resolveDescriptor(idSig: IdSignature): ClassDescriptor? =
                 with(idSig as IdSignature.CommonSignature) {
                     val classId = ClassId(packageFqName(), FqName(declarationFqName), false)
-                    moduleDescriptor.findClassAcrossModuleDependencies(classId) ?: error("No declaration found with $idSig")
+                    moduleDescriptor.findClassAcrossModuleDependencies(classId)
                 }
 
         private fun buildForwardDeclarationStub(descriptor: ClassDescriptor): IrClass {
@@ -813,11 +813,11 @@ internal class KonanIrLinker(
             }
         }
 
-        override fun deserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol {
+        override fun tryDeserializeIrSymbol(idSig: IdSignature, symbolKind: BinarySymbolData.SymbolKind): IrSymbol? {
             require(symbolKind == BinarySymbolData.SymbolKind.CLASS_SYMBOL) {
                 "Only class could be a Forward declaration $idSig (kind $symbolKind)"
             }
-            val descriptor = resolveDescriptor(idSig)
+            val descriptor = resolveDescriptor(idSig) ?: return null
             val actualModule = descriptor.module
             if (actualModule !== moduleDescriptor) {
                 val moduleDeserializer = resolveModuleDeserializer(actualModule, idSig)
