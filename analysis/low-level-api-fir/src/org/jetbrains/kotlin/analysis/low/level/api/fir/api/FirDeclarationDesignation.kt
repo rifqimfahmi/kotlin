@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.renderWithType
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toFirRegularClass
 import org.jetbrains.kotlin.fir.symbols.impl.LookupTagInternals
 
@@ -72,7 +73,10 @@ private fun collectDesignationPath(declaration: FirDeclaration): List<FirDeclara
         }
         is FirClassLikeDeclaration -> {
             if (declaration.isLocal) return null
-            declaration.symbol.classId.outerClassId?.let(declaration.moduleData.session.firProvider::getFirClassifierByFqName)
+            declaration.symbol.classId.outerClassId?.let {
+                // Note: firProvider does not work for Java classes
+                declaration.moduleData.session.symbolProvider.getClassLikeSymbolByClassId(it)?.fir
+            }
         }
         else -> return null
     } ?: return emptyList()
