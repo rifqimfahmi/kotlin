@@ -29,7 +29,12 @@ abstract class KtFe10SimpleNameReference(expression: KtSimpleNameExpression) : K
         val descriptor = bindingContext[BindingContext.REFERENCE_TARGET, expression]
             ?: expression.getResolvedCall(bindingContext)?.resultingDescriptor
 
-        return listOfNotNull(descriptor?.toKtSymbol(analysisContext))
+        if (descriptor == null) {
+            val ambiguousDescriptors = bindingContext[BindingContext.AMBIGUOUS_REFERENCE_TARGET, expression] ?: return emptyList()
+            return ambiguousDescriptors.mapNotNull { it.toKtSymbol(analysisContext) }
+        }
+
+        return listOfNotNull(descriptor.toKtSymbol(analysisContext))
     }
 }
 
