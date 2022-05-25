@@ -1,2 +1,2 @@
 Resolved to:
-0: (in pkg.Foo) open fun bar()
+0: (in pkg.Foo) fun bar()

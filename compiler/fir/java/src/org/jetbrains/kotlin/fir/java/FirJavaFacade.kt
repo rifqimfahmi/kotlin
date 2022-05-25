@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.fir.declarations.builder.buildTypeParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
 import org.jetbrains.kotlin.fir.declarations.utils.modality
-import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.expressions.FirConstExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.classId
@@ -47,7 +46,6 @@ import org.jetbrains.kotlin.load.java.JavaClassFinder
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.java.structure.*
 import org.jetbrains.kotlin.load.java.structure.impl.JavaElementImpl
-import org.jetbrains.kotlin.load.java.structure.impl.classFiles.BinaryJavaClass
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.toKtPsiSourceElement
 import org.jetbrains.kotlin.types.Variance.INVARIANT
@@ -245,7 +243,11 @@ abstract class FirJavaFacade(
             val visibility = javaClass.visibility
             this@buildJavaClass.visibility = visibility
             classKind = javaClass.classKind
-            modality = if (classKind == ClassKind.ANNOTATION_CLASS || classKind == ClassKind.ENUM_CLASS) Modality.FINAL else javaClass.modality
+            modality = if (classKind == ClassKind.ANNOTATION_CLASS || classKind == ClassKind.ENUM_CLASS) {
+                Modality.FINAL
+            } else {
+                javaClass.modality
+            }
             this.isTopLevel = classId.outerClassId == null
             isStatic = javaClass.isStatic
             javaPackage = packageCache.getValue(classSymbol.classId.packageFqName)
@@ -484,7 +486,7 @@ abstract class FirJavaFacade(
             annotationBuilder = { javaMethod.convertAnnotationsToFir(session, javaTypeParameterStack) }
             status = FirResolvedDeclarationStatusImpl(
                 javaMethod.visibility,
-                javaMethod.modality,
+                if (javaMethod.isStatic) Modality.FINAL else javaMethod.modality,
                 javaMethod.visibility.toEffectiveVisibility(dispatchReceiver.lookupTag)
             ).apply {
                 isStatic = javaMethod.isStatic
@@ -563,7 +565,9 @@ abstract class FirJavaFacade(
             typeParameters += classTypeParameters.map { buildConstructedClassTypeParameterRef { symbol = it.symbol } }
 
             if (javaConstructor != null) {
-                this.typeParameters += javaConstructor.typeParameters.convertTypeParameters(javaTypeParameterStack, constructorSymbol, moduleData)
+                this.typeParameters += javaConstructor.typeParameters.convertTypeParameters(
+                    javaTypeParameterStack, constructorSymbol, moduleData
+                )
                 annotationBuilder = { javaConstructor.convertAnnotationsToFir(session, javaTypeParameterStack) }
                 for ((index, valueParameter) in javaConstructor.valueParameters.withIndex()) {
                     valueParameters += valueParameter.toFirValueParameter(session, moduleData, index, javaTypeParameterStack)
