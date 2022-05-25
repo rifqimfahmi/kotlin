@@ -379,7 +379,7 @@ internal class KtFe10Renderer(
     private fun KtFe10RendererConsumer.renderReceiver(descriptor: CallableDescriptor) {
         if (descriptor.isSynthesized) return
         val extensionReceiver = descriptor.extensionReceiverParameter ?: return
-        val needsParentheses = !descriptor.annotations.isEmpty() || needsParenthesis(extensionReceiver.type)
+        val needsParentheses = !extensionReceiver.annotations.isEmpty() || needsParenthesis(extensionReceiver.type)
         if (needsParentheses) {
             append('(')
         }
