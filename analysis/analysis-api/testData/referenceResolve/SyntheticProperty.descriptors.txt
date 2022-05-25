@@ -1,0 +1,2 @@
+Resolved to:
+0: var JavaClass.something: kotlin.Int
