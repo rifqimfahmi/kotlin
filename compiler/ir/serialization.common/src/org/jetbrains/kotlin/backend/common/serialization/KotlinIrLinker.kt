@@ -62,20 +62,38 @@ abstract class KotlinIrLinker(
     protected open val unlinkedDeclarationsSupport: UnlinkedDeclarationsSupport = UnlinkedDeclarationsSupport.DISABLED
     protected open val userVisibleIrModulesSupport: UserVisibleIrModulesSupport = UserVisibleIrModulesSupport.DEFAULT
 
-    fun handleSignatureIdNotFoundInModuleWithDependencies(
+    private val moduleWithUnboundSymbolsDeserializer: IrModuleWithUnboundSymbolsDeserializer? by lazy {
+        if (unlinkedDeclarationsSupport.allowUnboundSymbols) IrModuleWithUnboundSymbolsDeserializer(symbolTable) else null
+    }
+
+    fun deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(
         idSignature: IdSignature,
+        symbolKind: BinarySymbolData.SymbolKind,
         moduleDeserializer: IrModuleDeserializer
-    ): IrModuleDeserializer {
-        if (unlinkedDeclarationsSupport.allowUnboundSymbols) {
-            return IrModuleWithUnboundSymbolsDeserializer(symbolTable)
-        } else {
-            throw SignatureIdNotFoundInModuleWithDependencies(
-                idSignature = idSignature,
-                problemModuleDeserializer = moduleDeserializer,
-                allModuleDeserializers = deserializersForModules.values,
-                userVisibleIrModulesSupport = userVisibleIrModulesSupport
-            ).raiseIssue(messageLogger)
-        }
+    ): IrSymbol {
+        fun notFound(): Nothing = throw SignatureIdNotFoundInModuleWithDependencies(
+            idSignature = idSignature,
+            problemModuleDeserializer = moduleDeserializer,
+            allModuleDeserializers = deserializersForModules.values,
+            userVisibleIrModulesSupport = userVisibleIrModulesSupport
+        ).raiseIssue(messageLogger)
+
+        val topLevelSignature = idSignature.topLevelSignature()
+
+        val actualModuleDeserializer: IrModuleDeserializer = moduleDeserializer.findModuleDeserializerForTopLevelId(topLevelSignature)
+            ?: run {
+                // The top-level symbol might be gone in newer version of dependency KLIB. Then the KLIB that was compiled against
+                // the older version of dependency KLIB will still have a reference to non-existing symbol. And the linker will have to
+                // handle such situation appropriately. See KT-41378.
+                moduleWithUnboundSymbolsDeserializer ?: notFound()
+            }
+
+        return actualModuleDeserializer.deserializeIrSymbol(idSignature, symbolKind)
+            ?: run {
+                // It might happen that the top-level symbol still exists in KLIB, but nested symbol has been removed.
+                // Need to handle such case as well.
+                moduleWithUnboundSymbolsDeserializer?.deserializeIrSymbol(idSignature, symbolKind) ?: notFound()
+            }
     }
 
     fun resolveModuleDeserializer(module: ModuleDescriptor, idSignature: IdSignature?): IrModuleDeserializer {
