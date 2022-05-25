@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtImportAlias
+import org.jetbrains.kotlin.psi.KtLabelReferenceExpression
 import org.jetbrains.kotlin.psi.KtSimpleNameExpression
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.calls.util.getResolvedCall
@@ -27,9 +28,14 @@ abstract class KtFe10SimpleNameReference(expression: KtSimpleNameExpression) : K
 
         val bindingContext = analysisContext.analyze(expression, AnalysisMode.PARTIAL)
 
-        val descriptor = bindingContext[BindingContext.REFERENCE_TARGET, expression]?.takeIf {
-            expression.getReferencedNameElementType() != KtTokens.THIS_KEYWORD
-        } ?: expression.getResolvedCall(bindingContext)?.resultingDescriptor
+        val descriptor = if (expression is KtLabelReferenceExpression) {
+            val target = bindingContext[BindingContext.LABEL_TARGET, expression]
+            target?.let { bindingContext[BindingContext.DECLARATION_TO_DESCRIPTOR, it] }
+        } else {
+            bindingContext[BindingContext.REFERENCE_TARGET, expression]?.takeIf {
+                expression.getReferencedNameElementType() != KtTokens.THIS_KEYWORD
+            } ?: expression.getResolvedCall(bindingContext)?.resultingDescriptor
+        }
 
         if (descriptor == null) {
             val ambiguousDescriptors = bindingContext[BindingContext.AMBIGUOUS_REFERENCE_TARGET, expression] ?: return emptyList()
