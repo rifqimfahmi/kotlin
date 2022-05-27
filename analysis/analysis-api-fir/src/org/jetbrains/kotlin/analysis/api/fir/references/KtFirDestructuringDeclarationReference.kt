@@ -23,10 +23,7 @@ class KtFirDestructuringDeclarationReference(
     override fun KtAnalysisSession.resolveToSymbols(): Collection<KtSymbol> {
         check(this is KtFirAnalysisSession)
         val fir = expression.getOrBuildFirSafe<FirProperty>(firResolveSession) ?: return emptyList()
-        return listOfNotNull(
-            fir.buildSymbol(firSymbolBuilder),
-            getComponentNSymbol(fir)
-        )
+        return listOfNotNull(getComponentNSymbol(fir))
     }
 
     private fun KtFirAnalysisSession.getComponentNSymbol(fir: FirProperty): KtSymbol? {
