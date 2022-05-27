@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.scopeSessionKey
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.transformers.ensureResolvedForCalls
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
@@ -50,6 +51,7 @@ class FirPackageMemberScope(
             symbolProvider.getTopLevelFunctionSymbols(fqName, name)
         }
         for (symbol in symbols) {
+            symbol.ensureResolvedForCalls()
             processor(symbol)
         }
     }
@@ -59,6 +61,7 @@ class FirPackageMemberScope(
             symbolProvider.getTopLevelPropertySymbols(fqName, name)
         }
         for (symbol in symbols) {
+            symbol.ensureResolvedForCalls()
             processor(symbol)
         }
     }

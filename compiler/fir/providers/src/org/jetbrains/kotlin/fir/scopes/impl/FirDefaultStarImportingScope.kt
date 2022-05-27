@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.declarations.builder.buildResolvedImport
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.transformers.ensureResolvedForCalls
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.FqName
@@ -49,6 +50,7 @@ class FirDefaultStarImportingScope(
         if (name.isSpecial || name.identifier.isNotEmpty()) {
             for (import in starImports) {
                 for (symbol in provider.getTopLevelFunctionSymbols(import.packageFqName, name)) {
+                    symbol.ensureResolvedForCalls()
                     processor(symbol)
                 }
             }
@@ -59,6 +61,7 @@ class FirDefaultStarImportingScope(
         if (name.isSpecial || name.identifier.isNotEmpty()) {
             for (import in starImports) {
                 for (symbol in provider.getTopLevelPropertySymbols(import.packageFqName, name)) {
+                    symbol.ensureResolvedForCalls()
                     processor(symbol)
                 }
             }
