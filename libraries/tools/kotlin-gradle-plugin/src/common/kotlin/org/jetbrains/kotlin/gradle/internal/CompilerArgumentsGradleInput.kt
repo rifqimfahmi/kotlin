@@ -49,6 +49,8 @@ internal object CompilerArgumentsGradleInput {
         // debug should not lead to rebuild (should include all subclasses where this property is)
         CommonToolArguments::verbose,
         CommonCompilerArguments::verbose,
+        CommonCompilerArguments::reportPerf,
+
         K2MetadataCompilerArguments::verbose,
         K2JSCompilerArguments::verbose,
         K2JVMCompilerArguments::verbose,
