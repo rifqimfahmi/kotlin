@@ -360,12 +360,12 @@ internal object FirReferenceResolveHelper {
         if (expression is KtLabelReferenceExpression && fir is FirPropertyAccessExpression && fir.calleeReference is FirSuperReference) {
             return listOfNotNull((fir.dispatchReceiver.typeRef as? FirResolvedTypeRef)?.toTargetSymbol(session, symbolBuilder))
         }
-        val implicitInvokeReceiver = if (fir is FirImplicitInvokeCall) {
-            fir.explicitReceiver as? FirQualifiedAccessExpression
-        } else {
-            null
+        val implicitInvokeReceiver = (fir as? FirImplicitInvokeCall)?.explicitReceiver
+        if (implicitInvokeReceiver is FirResolvedQualifier) {
+            return getSymbolsForResolvedQualifier(implicitInvokeReceiver, expression, session, symbolBuilder)
         }
-        val calleeReference = implicitInvokeReceiver?.calleeReference ?: fir.calleeReference
+        val calleeReference =
+            if (implicitInvokeReceiver is FirQualifiedAccessExpression) implicitInvokeReceiver.calleeReference else fir.calleeReference
 
         return calleeReference.toTargetSymbol(session, symbolBuilder, isInLabelReference = expression is KtLabelReferenceExpression)
     }
