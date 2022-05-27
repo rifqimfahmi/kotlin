@@ -57,8 +57,8 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
 import org.jetbrains.kotlin.psi2ir.Psi2IrTranslator
 import org.jetbrains.kotlin.psi2ir.descriptors.IrBuiltInsOverDescriptors
-import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorForNotFoundClasses
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
+import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorForNotFoundClasses
 import org.jetbrains.kotlin.psi2ir.generators.GeneratorContext
 import org.jetbrains.kotlin.psi2ir.generators.TypeTranslatorImpl
 import org.jetbrains.kotlin.resolve.BindingContext
@@ -68,6 +68,7 @@ import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.util.DummyLogger
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.utils.DFS
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.io.File
 
 val KotlinLibrary.moduleName: String
@@ -158,23 +159,24 @@ fun generateIrForKlibSerialization(
     val psi2Ir = Psi2IrTranslator(configuration.languageVersionSettings, Psi2IrConfiguration(errorPolicy.allowErrors, allowUnboundSymbols))
     val psi2IrContext = psi2Ir.createGeneratorContext(analysisResult.moduleDescriptor, analysisResult.bindingContext, symbolTable)
     val irBuiltIns = psi2IrContext.irBuiltIns
-    val stubGenerator = DeclarationStubGeneratorImpl(
-        psi2IrContext.moduleDescriptor,
-        symbolTable,
-        irBuiltIns,
-        DescriptorByIdSignatureFinderImpl(psi2IrContext.moduleDescriptor, JsManglerDesc)
-    )
 
     val feContext = psi2IrContext.run {
         JsIrLinker.JsFePluginContext(moduleDescriptor, symbolTable, typeTranslator, irBuiltIns)
     }
+    val stubGenerator = DeclarationStubGeneratorImpl(
+        psi2IrContext.moduleDescriptor,
+        symbolTable,
+        irBuiltIns,
+        DescriptorByIdSignatureFinderImpl(psi2IrContext.moduleDescriptor, JsManglerDesc),
+    )
     val irLinker = JsIrLinker(
         psi2IrContext.moduleDescriptor,
         messageLogger,
         psi2IrContext.irBuiltIns,
         psi2IrContext.symbolTable,
         feContext,
-        ICData(serializedIrFiles, errorPolicy.allowErrors)
+        ICData(serializedIrFiles, errorPolicy.allowErrors),
+        stubGenerator = stubGenerator
     )
 
     sortedDependencies.map { irLinker.deserializeOnlyHeaderModule(getDescriptorByLibrary(it), it) }
@@ -461,7 +463,6 @@ fun getIrModuleInfoForSourceFiles(
         )
 
     val moduleFragment = psi2IrContext.generateModuleFragmentWithPlugins(project, files, irLinker, messageLogger)
-
     // TODO: not sure whether this check should be enabled by default. Add configuration key for it.
     val mangleChecker = ManglerChecker(JsManglerIr, Ir2DescriptorManglerAdapter(JsManglerDesc))
     if (verifySignatures) {
@@ -527,11 +528,10 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
     irLinker: IrDeserializer,
     messageLogger: IrMessageLogger,
     expectDescriptorToSymbol: MutableMap<DeclarationDescriptor, IrSymbol>? = null,
-    irProvider: IrProvider = irLinker
+    stubGenerator: DeclarationStubGenerator? = null
 ): IrModuleFragment {
-    val psi2Ir = Psi2IrTranslator(languageVersionSettings, configuration)
-
     val extensions = IrGenerationExtension.getInstances(project)
+    val psi2Ir = Psi2IrTranslator(languageVersionSettings, configuration)
 
     if (extensions.isNotEmpty()) {
         // plugin context should be instantiated before postprocessing steps
@@ -548,15 +548,22 @@ fun GeneratorContext.generateModuleFragmentWithPlugins(
 
         for (extension in extensions) {
             psi2Ir.addPostprocessingStep { module ->
-                extension.generate(module, pluginContext)
+                val old = stubGenerator?.unboundSymbolGeneration
+                try {
+                    stubGenerator?.unboundSymbolGeneration = true
+                    extension.generate(module, pluginContext)
+                } finally {
+                    stubGenerator?.unboundSymbolGeneration = old!!
+                }
             }
         }
+
     }
 
     return psi2Ir.generateModuleFragment(
         this,
         files,
-        listOf(irProvider),
+        stubGenerator?.let(::listOf) ?: listOf(irLinker),
         extensions,
         expectDescriptorToSymbol
     )
