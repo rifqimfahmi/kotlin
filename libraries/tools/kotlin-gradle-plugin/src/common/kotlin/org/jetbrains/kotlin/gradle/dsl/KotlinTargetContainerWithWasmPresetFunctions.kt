@@ -10,6 +10,7 @@ import org.gradle.util.ConfigureUtil
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTargetPreset
+import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinWasmTargetPreset
 
 interface KotlinTargetContainerWithWasmPresetFunctions : KotlinTargetContainerWithPresetFunctions {
     fun wasm(
@@ -18,7 +19,7 @@ interface KotlinTargetContainerWithWasmPresetFunctions : KotlinTargetContainerWi
     ): KotlinJsTargetDsl =
         configureOrCreate(
             name,
-            presets.getByName("wasm") as KotlinJsIrTargetPreset,
+            presets.getByName("wasm") as KotlinWasmTargetPreset,
             configure
         )
 
