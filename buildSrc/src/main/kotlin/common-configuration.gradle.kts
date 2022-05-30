@@ -181,10 +181,7 @@ fun Project.configureKotlinCompilationOptions() {
                     allWarningsAsErrors = !kotlinBuildProperties.disableWerror
                 }
                 if (project.path in projectsWithEnabledContextReceivers) {
-                    freeCompilerArgs += listOf(
-                        "-Xcontext-receivers",
-                        "-Xdont-poison-binaries-with-prerelease"
-                    )
+                    freeCompilerArgs += "-Xcontext-receivers"
                 }
             }
         }
