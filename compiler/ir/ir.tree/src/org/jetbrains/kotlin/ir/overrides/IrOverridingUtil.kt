@@ -471,6 +471,16 @@ class IrOverridingUtil(
         return typeCheckerState.isSubtypeOf(aReturnType, bReturnType)
     }
 
+    private fun isDispatchReceiverTypeMoreSpecific(
+        a: IrSimpleFunction,
+        b: IrSimpleFunction,
+    ): Boolean {
+        val aDispatchReceiverType = a.dispatchReceiverParameter?.type ?: return true
+        val bDispatchReceiverType = b.dispatchReceiverParameter?.type ?: return true
+        val typeCheckerState = createTypeCheckerState(a.typeParameters, b.typeParameters)
+        return typeCheckerState.isSubtypeOf(aDispatchReceiverType, bDispatchReceiverType)
+    }
+
     private fun isMoreSpecific(
         a: IrOverridableMember,
         b: IrOverridableMember
@@ -481,6 +491,7 @@ class IrOverridingUtil(
         if (a is IrSimpleFunction) {
             require(b is IrSimpleFunction) { "b is " + b.javaClass }
             return isReturnTypeMoreSpecific(a, aReturnType, b, bReturnType)
+                    && isDispatchReceiverTypeMoreSpecific(a, b)
         }
         if (a is IrProperty) {
             require(b is IrProperty) { "b is " + b.javaClass }
