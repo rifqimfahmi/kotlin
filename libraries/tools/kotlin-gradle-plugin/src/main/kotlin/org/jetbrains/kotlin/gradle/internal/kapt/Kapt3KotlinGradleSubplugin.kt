@@ -447,14 +447,18 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
     }
 
     private fun encodeList(options: Map<String, String>): String {
+		println("Okay I'm here")
         val os = ByteArrayOutputStream()
         val oos = ObjectOutputStream(os)
 
         oos.writeInt(options.size)
         for ((key, value) in options.entries) {
+			println("Key: $key")
+			println("Value: $value")
             oos.writeUTF(key)
             oos.writeUTF(value)
         }
+		println("C'moooon man!")
 
         oos.flush()
         return Base64.getEncoder().encodeToString(os.toByteArray())
