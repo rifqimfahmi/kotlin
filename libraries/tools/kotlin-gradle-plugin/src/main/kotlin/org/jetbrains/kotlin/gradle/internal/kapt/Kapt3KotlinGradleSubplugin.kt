@@ -44,6 +44,7 @@ import java.io.ObjectOutputStream
 import java.util.*
 import java.util.concurrent.Callable
 import javax.inject.Inject
+import java.nio.charset.StandardCharsets
 
 // apply plugin: 'kotlin-kapt'
 class Kapt3GradleSubplugin @Inject internal constructor(private val registry: ToolingModelBuilderRegistry) :
@@ -455,8 +456,8 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
         for ((key, value) in options.entries) {
 			println("Key: $key")
 			println("Value: $value")
-            oos.writeUTF(key)
-            oos.writeUTF(value)
+            oos.write(key.toByteArray(StandardCharsets.UTF_8))
+            oos.write(value.toByteArray(StandardCharsets.UTF_8))
         }
 		println("C'moooon man!")
 
