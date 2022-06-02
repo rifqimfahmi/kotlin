@@ -44,6 +44,7 @@ import java.io.ObjectOutputStream
 import java.util.*
 import java.util.concurrent.Callable
 import javax.inject.Inject
+import java.nio.charset.StandardCharsets
 
 // apply plugin: 'kotlin-kapt'
 class Kapt3GradleSubplugin @Inject internal constructor(private val registry: ToolingModelBuilderRegistry) :
@@ -447,14 +448,18 @@ class Kapt3GradleSubplugin @Inject internal constructor(private val registry: To
     }
 
     private fun encodeList(options: Map<String, String>): String {
+		println("Okay I'm here")
         val os = ByteArrayOutputStream()
         val oos = ObjectOutputStream(os)
 
         oos.writeInt(options.size)
         for ((key, value) in options.entries) {
-            oos.writeUTF(key)
-            oos.writeUTF(value)
+			println("Key: $key")
+			println("Value: $value")
+            oos.write(key.toByteArray(StandardCharsets.UTF_8))
+            oos.write(value.toByteArray(StandardCharsets.UTF_8))
         }
+		println("C'moooon man!")
 
         oos.flush()
         return Base64.getEncoder().encodeToString(os.toByteArray())

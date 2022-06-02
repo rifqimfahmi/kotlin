@@ -54,6 +54,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.ObjectInputStream
 import java.util.*
+import java.nio.charset.StandardCharsets
 
 private val KAPT_OPTIONS = CompilerConfigurationKey.create<KaptOptions.Builder>("Kapt options")
 
@@ -149,8 +150,8 @@ class Kapt3CommandLineProcessor : CommandLineProcessor {
         val n = ois.readInt()
 
         repeat(n) {
-            val k = ois.readUTF()
-            val v = ois.readUTF()
+            val k = String(ois.readBytes(), StandardCharsets.UTF_8)
+            val v = String(ois.readBytes(), StandardCharsets.UTF_8)
             map[k] = v
         }
 
